@@ -7,16 +7,11 @@ import numpy as np
 from PIL import Image, UnidentifiedImageError
 import os
 
-# Function to load image and convert to NumPy array
-def image_to_array_old(image_path):
-    img = Image.open(image_path)  # Open the image using PIL
-    return np.array(img)  # Convert to NumPy array
-
 # Function to load the image and convert it into a NumPy array
 def image_to_array(image_path):
     try:
         with Image.open(image_path) as img:
-            downsample_img = img.resize((img.width // 2, img.height // 2))
+            downsample_img = img.resize((img.width // 3, img.height // 3))
             img_array = np.array(downsample_img)
         return img_array
     except (UnidentifiedImageError, IOError):
@@ -24,13 +19,21 @@ def image_to_array(image_path):
 
 def dataframe_to_pkl(tsv_dir, pkl_file_name):
 
-    image_dir = "../public_images/public_image_set"
+    image_dir = "../Project data/public_images/public_image_set"
     df = pd.read_csv(tsv_dir, sep='\t')
 
-    # Select only 10% of frame
-    #df = df.head(10000)
-    df = df.sample(frac=0.1)
+    print("printing stats for directory ", tsv_dir)
+    print("whole dataframe")
+    print(df['3_way_label'].value_counts())
+    print(df['3_way_label'].value_counts(normalize=True) * 100)
+
+    # Select only 20% of frame with same distribution of 3_way_label
+    df = df.groupby('3_way_label', group_keys=False).apply(lambda x: x.sample(frac=0.2))
     df = df.reset_index(drop=True)
+
+    print("partial dataframe")
+    print(df['3_way_label'].value_counts())
+    print(df['3_way_label'].value_counts(normalize=True) * 100)
 
     print("before")
     print(df.index)
@@ -40,7 +43,7 @@ def dataframe_to_pkl(tsv_dir, pkl_file_name):
 
     # rename id as image_path, and remove unnecessary columns
     df.rename(columns={'id': 'image_path'}, inplace=True)
-    columns_to_keep = ['clean_title', 'image_path', '2_way_label']
+    columns_to_keep = ['clean_title', 'image_path', '3_way_label']
     df = df[columns_to_keep]
 
     df['image_path'] = image_dir + '/' + df['image_path'] + '.jpg'
@@ -74,23 +77,44 @@ def dataframe_to_pkl(tsv_dir, pkl_file_name):
 
     df.to_pickle(pkl_file_name)
 
-    #img = Image.fromarray(df['Image_Data'][0])
-    # Display the image
-    #img.show()
+def get_partial_dataset(tsv_dir):
+
+    image_dir = "../Project data/public_images/public_image_set"
+    df = pd.read_csv(tsv_dir, sep='\t')
+
+    print("printing stats for directory ", tsv_dir)
+
+    #print(df['2_way_label'].value_counts())
+    #print(df['2_way_label'].value_counts(normalize=True) * 100)
+    print(df['3_way_label'].value_counts())
+    print(df['3_way_label'].value_counts(normalize=True) * 100)
+    #print(df['6_way_label'].value_counts())
+    #print(df['6_way_label'].value_counts(normalize=True) * 100)
+
+    parital_df = df.groupby('3_way_label', group_keys=False).apply(lambda x: x.sample(frac=0.2))
+    parital_df = parital_df.reset_index(drop=True)
+    #print(parital_df['2_way_label'].value_counts(normalize=True) * 100)
+    print(parital_df['3_way_label'].value_counts())
+    print(parital_df['3_way_label'].value_counts(normalize=True) * 100)
+    #print(parital_df['6_way_label'].value_counts(normalize=True) * 100)
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     print(torch.cuda.is_available())
 
-    train_tsv_dir = "../Fakeddit_datasetv2.0/multimodal_only_samples/multimodal_train.tsv"
-    test_tsv_dir = "../Fakeddit_datasetv2.0/multimodal_only_samples/multimodal_test_public.tsv"
-    validate_tsv_dir = "../Fakeddit_datasetv2.0/multimodal_only_samples/multimodal_validate.tsv"
+    train_tsv_dir = "../Project data/Fakeddit_datasetv2.0/multimodal_only_samples/multimodal_train.tsv"
+    test_tsv_dir = "../Project data/Fakeddit_datasetv2.0/multimodal_only_samples/multimodal_test_public.tsv"
+    validate_tsv_dir = "../Project data/Fakeddit_datasetv2.0/multimodal_only_samples/multimodal_validate.tsv"
 
     train_pkl_file = 'train_df.pkl'
     test_pkl_file = 'test_df.pkl'
     validate_pkl_file = 'validate_df.pkl'
 
-    #dataframe_to_pkl(train_tsv_dir, train_pkl_file)
-    #dataframe_to_pkl(test_tsv_dir, test_pkl_file)
+    dataframe_to_pkl(train_tsv_dir, train_pkl_file)
+    dataframe_to_pkl(test_tsv_dir, test_pkl_file)
     dataframe_to_pkl(validate_tsv_dir, validate_pkl_file)
+
+    #get_partial_dataset(train_tsv_dir)
+    #get_partial_dataset(validate_tsv_dir)
+    #get_partial_dataset(test_tsv_dir)
